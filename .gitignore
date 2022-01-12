@@ -1,0 +1,7 @@
+.ipynb_checkpoints
+.doit*
+__pycache__/
+src.egg-info
+.flake8
+.pre-commit-config.yaml
+pyproject.toml
