@@ -2,8 +2,10 @@ name: istanbul-ferries-env
 channels:
   - defaults
   - conda-forge
+  - anaconda
 dependencies:
   - python=3.9.7
+  - sqlite
   - numpy
   - pandas
   - matplotlib
