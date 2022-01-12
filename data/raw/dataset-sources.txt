@@ -1,0 +1,16 @@
+Datasets under 'geolocation'
+automated-weather-station-geoloc.csv => https://data.ibb.gov.tr/en/dataset/meteoroloji-gozlem-istasyon-konumlari
+ferry-lines-geoloc.csv => https://data.ibb.gov.tr/en/dataset/deniz-ulasim-hatlari-vektor-verisi
+ferry-terminals-geoloc.csv => https://data.ibb.gov.tr/en/dataset/deniz-ulasim-istasyonlari-vektor-verisi
+icing-sensors.geoloc.csv => https://data.ibb.gov.tr/en/dataset/meteoroloji-gozlem-istasyon-konumlari
+istanbul-district.shp and related files => https://www.openstreetmap.org
+
+Datasets under 'historic-transportation-load'
+All taken from https://data.ibb.gov.tr/en/dataset/hourly-public-transport-data-set
+
+Datasets under 'historic-weather-observations'
+All taken from https://data.ibb.gov.tr/en/dataset/meteorology-observation-station-data-set
+
+Datasets under 'summary-stats'
+inventory_2020 => https://data.ibb.gov.tr/en/dataset/deniz-isletmeleri-bazinda-arac-hat-ve-iskele-sayisi
+passengers-per-ferry-terminal_2020 => https://data.ibb.gov.tr/en/dataset/istanbul-deniz-iskeleleri-yolcu-sayilari
