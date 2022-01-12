@@ -1,0 +1,17 @@
+name: istanbul-ferries-env
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python=3.9.7
+  - numpy
+  - pandas
+  - matplotlib
+  - contextily
+  - shapely
+  - geopandas
+  - notebook
+  - pip
+  - pip:
+    - -e .
+    - doit
