@@ -1,9 +1,8 @@
 from pathlib import Path
 
-
 import pandas as pd
-from shapely.geometry import Point
-from shapely.geometry import LineString
+
+from src.helper_functions import check_line_validity, check_point_validity
 
 # Import data
 import_dicts = [
@@ -189,22 +188,6 @@ dataset.loc[:, "shape-data"] = (
     .str.replace(" ", "|", regex=True)
 )
 # drop any rows whose 'shape-data' is not valid.
-
-
-def check_line_validity(line_points):
-    try:
-        LineString(line_points)
-    except Exception:
-        raise Exception
-
-
-def check_point_validity(c1, c2):
-    try:
-        Point(c1, c2)
-    except Exception:
-        raise Exception
-
-
 valid_geom_mask = []
 mask_base = dataset["shape-data"]
 mask_base = (mask_base.str.split(";")).values
@@ -245,5 +228,6 @@ dataset = dataset.reindex(columns=["id", "line-name", "shape-data"]).sort_values
 # re-write the dataset into the dict
 datasets["ferry-lines"] = dataset
 
+
 # --- clean 'terminals-lines' dataframe ---
-print(datasets["terminals-lines"])
+print(datasets["terminal-lines"])
