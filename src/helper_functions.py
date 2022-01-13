@@ -1,15 +1,11 @@
-from shapely.geometry import Point, LineString
+import numpy as np
+from shapely.wkt import loads
 
 
-def check_line_validity(line_points):
+def try_wkt_conversion(shape_str):
     try:
-        LineString(line_points)
+        shape_str = loads(shape_str).wkt
     except Exception:
-        raise Exception
-
-
-def check_point_validity(c1, c2):
-    try:
-        Point(c1, c2)
-    except Exception:
-        raise Exception
+        shape_str = np.nan
+    finally:
+        return shape_str
