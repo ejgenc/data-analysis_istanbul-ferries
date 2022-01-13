@@ -2,6 +2,8 @@ from pathlib import Path
 
 
 import pandas as pd
+from shapely.geometry import Point
+from shapely.geometry import LineString
 
 # Import data
 import_dicts = [
@@ -10,21 +12,27 @@ import_dicts = [
         "path": Path("data/raw/geolocation/ferry-terminals-geoloc.csv"),
         "encoding": "utf-8",
         "sep": ";",
-        "headers": ["terminal-name", "has-line", "turu_iskele", "globalid", "geometry"],
+        "headers": [
+            "terminal-name",
+            "has-line",
+            "turu_iskele",
+            "globalid",
+            "shape-data",
+        ],
         "skiprows": 0,
     },
     {
         "tag": "ferry-lines",
         "path": Path("data/raw/geolocation/ferry-lines-geoloc.csv"),
         "encoding": "utf-8",
-        "sep": ";",
+        "sep": ",",
         "headers": [
-            "line_name",
+            "line-name",
             "isim_kurum",
             "tur_hat",
             "website",
             "globalid",
-            "geometry",
+            "shape-data",
         ],
         "skiprows": 1,
     },
@@ -71,7 +79,7 @@ repl_dict = {
     "Yeniköy ÞH.": "Yeniköy",
     "Çengelköy ÞH.": "Çengelköy",
     "Çubuklu ÞH.": "Çubuklu",
-    "Çubuklu ÞH. (Arabalý Vapur)": "Çubuklu Car Ferry",
+    "Çubuklu ÞH. (Arabalý Vapur)": "Çubuklu Car Ferry Terminal",
     "Üsküdar ÞH.": "Üsküdar",
     "Ýstinye ÞH.": "İstinye",
     "Kadýköy-Beþiktaþ ÞH.": "Kadıköy - Beşiktaş",
@@ -90,8 +98,8 @@ repl_dict = {
     "Burgazada ÞH.": "Burgazada",
     "Büyükada ÞH.": "Büyükada",
     "Büyükdere ÞH.": "Büyükdere",
-    "Eminönü Camlý Ýskele ÞH.": "Eminönü Small Pier",
-    "Eminönü-Boðaz ÞH.": "Eminönü - Boğaz",
+    "Eminönü Camlý Ýskele ÞH.": "Eminönü Small Terminal",
+    "Eminönü-Boðaz ÞH.": "Eminönü - Bosphorus",
     "Eminönü-Haliç ÞH.": "Eminönü Haliç",
     "Eminönü-Kadýköy ÞH.": "Eminönü - Kadıköy",
     "Eminönü-Üsküdar ÞH.": "Eminönü - Üsküdar",
@@ -99,13 +107,13 @@ repl_dict = {
     "Eyüp ÞH.": "Eyüp",
     "Fener ÞH.": "Fener",
     "Hasköy ÞH.": "Hasköy",
-    "Ýstinye ÞH. (Arabalý Vapur)": "İstinye Car Ferry",
+    "Ýstinye ÞH. (Arabalý Vapur)": "İstinye Car Ferry Terminal",
 }
 dataset = dataset.replace(repl_dict)
 # fix values in the 'has-line' column
 repl_dict = {
     "Hattý": "Line",
-    "Boðaz": "Boğaz",
+    "Boðaz": "Bosphorus",
     "Kabataþ": "Kabataş",
     "Kadýköy": "Kadıköy",
     "Beþiktaþ": "Beşiktaş",
@@ -119,10 +127,123 @@ repl_dict = {
     "Bostancý": "Bostancı",
 }
 for pat, repl in repl_dict.items():
-    dataset.loc[:, "has-line"] = dataset.loc[:, "has-line"].str.replace(pat, repl)
+    dataset.loc[:, "has-line"] = dataset.loc[:, "has-line"].str.replace(
+        pat, repl, regex=True
+    )
+# fix value formatting of the "has-line" column
+dataset.loc[:, "has-line"] = dataset.loc[:, "has-line"].str.replace(
+    r"(\w)-(\w)", lambda x: (x.group(1) + " - " + x.group(2)), regex=True
+)
+# fix 'shape-data' formatting
+dataset.loc[:, "shape-data"] = (
+    dataset.loc[:, "shape-data"]
+    .str.replace("[POINT()]", "", regex=True)
+    .str.strip()
+    .str.replace(" ", "|", regex=True)
+)
+# sort by 'terminal-name' columns, add unique id, and reorder columns
+dataset = dataset.sort_values(by="terminal-name").reset_index(drop=True)
+dataset["id"] = [i for i in range(1, len(dataset) + 1)]
+dataset = dataset.reindex(columns=["id", "terminal-name", "shape-data", "has-line"])
+# separate out the 'ferry-terminals' dataset from the 'terminals-lines' dataset
+datasets["terminals-lines"] = dataset.loc[:, ["id", "terminal-name", "has-line"]]
+dataset = dataset.drop("has-line", axis=1)
+# drop the "has-line" column
+# re-write the dataset into the dict
+datasets["ferry-terminals"] = dataset
 
-# --- clean 'ferry-lines-geoloc.csv' ---
+# # --- clean 'ferry-lines-geoloc.csv' ---
 dataset = datasets["ferry-lines"]
-# Fix mess from CSV parsing & drop unnecessary rows at once
-# dataset = dataset.loc[:, ["line_name", "geometry"]]
-print(dataset["geometry"])
+# filter by only 'şehir hatları'
+dataset = dataset.loc[
+    dataset["isim_kurum"].str.contains("Þehir Hatlarý Turizm ve Tic. San. AÞ.")
+]
+# drop unnecessary columns
+dataset = dataset.loc[:, ["line-name", "shape-data"]]
+# fix values in the "line-name" column
+# extending the previous 'repl_dict' since it hasn't been recycled yet.
+repl_dict["Bosphorusdan Geliþ"] = "From Bosph. to South"
+repl_dict["Bosphorusa Gidiþ"] = "From South to Bosph."
+repl_dict["Uðramasýz"] = "Not Visited"
+repl_dict["Kýnalýada"] = "Kınalıada"
+repl_dict["Uzun"] = "Long"
+repl_dict["Kýsa"] = "Short"
+repl_dict["Turu"] = "Tour"
+repl_dict["İstinye - Çubuklu (Car Ferry)"] = "İstinye - Çubuklu Car Ferry Line"
+repl_dict["Üsküdar - Karaköy - Eminönü - Eyüp (Haliç Line)"] = "$1"
+repl_dict["From Bosph. to South"] = "Bosphorus Line"
+repl_dict["From South to Bosph."] = "Bosphorus Line"
+for pat, repl in repl_dict.items():
+    dataset.loc[:, "line-name"] = dataset.loc[:, "line-name"].str.replace(
+        pat, repl, regex=True
+    )
+# fix value formatting of the "line-name" column
+dataset.loc[:, "line-name"] = dataset.loc[:, "line-name"].str.replace(
+    r"(\w)-(\w)", lambda x: (x.group(1) + " - " + x.group(2)), regex=True
+)
+# fix 'shape-data' formatting
+dataset.loc[:, "shape-data"] = (
+    dataset.loc[:, "shape-data"]
+    .str.replace("[POINT()LINESTRINGMULTILINESTRING]", "", regex=True)
+    .str.strip()
+    .str.replace(" ", "|", regex=True)
+)
+# drop any rows whose 'shape-data' is not valid.
+
+
+def check_line_validity(line_points):
+    try:
+        LineString(line_points)
+    except Exception:
+        raise Exception
+
+
+def check_point_validity(c1, c2):
+    try:
+        Point(c1, c2)
+    except Exception:
+        raise Exception
+
+
+valid_geom_mask = []
+mask_base = dataset["shape-data"]
+mask_base = (mask_base.str.split(";")).values
+for data_list in mask_base:
+    valid = True
+    try:
+        line_points = []
+        for data in data_list:
+            data = data.lstrip("|").split("|")
+            try:
+                check_point_validity(float(data[0]), float(data[1]))
+            except Exception:
+                raise Exception
+            line_points.append((float(data[0]), float(data[1])))
+        try:
+            check_line_validity(line_points)
+        except Exception:
+            raise Exception
+    except Exception:
+        valid = False
+    finally:
+        valid_geom_mask.append(valid)
+
+dataset = dataset.loc[valid_geom_mask, :]
+# merge the rows that have the same line name
+dataset = dataset.groupby("line-name").agg({"shape-data": " ".join}).reset_index()
+# drop 'Adalar Bostancı' and 'Bosphorus Line' lines because they just don't work
+for line_name in ["Adalar - Bostancı", "Bosphorus Line"]:
+    dataset = dataset.loc[dataset["line-name"] != line_name, :]
+# dataset = dataset.loc[,?
+# Reset index and give a unique ID to all lines
+dataset = dataset.reset_index()
+dataset["id"] = [i for i in range(1, len(dataset["line-name"]) + 1)]
+# reorder and sort by 'line-name' columns
+dataset = dataset.reindex(columns=["id", "line-name", "shape-data"]).sort_values(
+    by="line-name"
+)
+# re-write the dataset into the dict
+datasets["ferry-lines"] = dataset
+
+# --- clean 'terminals-lines' dataframe ---
+print(datasets["terminals-lines"])
