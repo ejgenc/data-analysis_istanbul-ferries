@@ -1,11 +1,12 @@
 from pathlib import Path
 import os
 
+import numpy as np
 import pandas as pd
 from shapely import geometry, ops
 from shapely.wkt import loads
 
-from src.helper_functions import try_wkt_conversion
+from src.helper_functions import try_wkt_conversion, convert_coord
 
 # Import data
 import_dicts = [
@@ -52,10 +53,32 @@ import_dicts = [
         "encoding": "utf-8",
         "sep": ",",
     },
+    {
+        "tag": "automated-weather-stations",
+        "path": Path("data/raw/geolocation/automated-weather-stations-geoloc.csv"),
+        "encoding": "utf-8",
+        "sep": ";",
+        "headers": ["station-header", "station-name", "shape-data"],
+        "skiprows": 1,
+    },
+    {
+        "tag": "icing-sensors",
+        "path": Path("data/raw/geolocation/icing-sensors-geoloc.csv"),
+        "encoding": "utf-8",
+        "sep": ",",
+        "headers": ["station-header", "station-name_1", "station_name-2", "shape-data"],
+        "skiprows": 1,
+    },
+    {
+        "tag": "weather-observations",
+        "path": Path("data/raw/historic-weather-observations/"),
+        "encoding": "utf-8",
+        "sep": ",",
+    },
 ]
 datasets = {}
 for import_dict in import_dicts:
-    if import_dict["tag"] != "transportation-load":
+    if import_dict["tag"] not in {"transportation-load", "weather-observations"}:
         datasets[import_dict["tag"]] = pd.read_csv(
             import_dict["path"],
             encoding=import_dict["encoding"],
@@ -372,4 +395,183 @@ dataset = dataset.sort_values(
 # rewrite the dataset back into the dict
 datasets["transportation-load"] = dataset
 
-# --- clean 'automated-weather-stations-geoloc.csv' and 'icing-sensors.geoloc.csv'
+# --- clean 'automated-weather-stations-geoloc.csv' ---
+dataset = datasets["automated-weather-stations"]
+dataset = list(dataset.index[:10].values)  # Need this because it turns out weird
+dataset = pd.DataFrame(dataset, columns=["header", "sensor-name", "shape-data"])
+
+# split out the 'shape-data' column to two temp columns
+dataset["shape-data"] = dataset["shape-data"].str.split(",")
+
+for i, col_label in enumerate(["TEMP_x", "TEMP_y"]):
+    dataset[col_label] = dataset["shape-data"].apply(lambda x: x[i]).str.strip()
+
+# turn degrees-minutes notation of 'shape-data' to degrees notation
+for col_label in ["TEMP_x", "TEMP_y"]:
+    dataset[col_label] = dataset[col_label].apply(
+        lambda x: convert_coord(x, "degrees_minutes", "degrees")
+    )
+
+# recreate the 'shape-data' column using WKT notation
+points = []
+for x, y in zip(dataset["TEMP_x"].values, dataset["TEMP_y"].values):
+    point = geometry.Point((x, y)).wkt
+    points.append(point)
+dataset["shape-data"] = points
+
+# drop unnecessary columns
+dataset = dataset.loc[:, ["sensor-name", "shape-data"]]
+
+# sort by 'sensor-name' and give all sensors a unique id
+dataset = dataset.sort_values(by="sensor-name")
+dataset["id"] = [i for i in range(1, len(dataset) + 1)]
+
+# reorder columns
+dataset = dataset.reindex(columns=["id", "sensor-name", "shape-data"])
+
+# rewrite the dataset back into the dict
+datasets["automated-weather-stations"] = dataset
+
+# --- clean 'icing-sensors.geoloc.csv' ---
+dataset = datasets["icing-sensors"]
+dataset = (
+    dataset.loc[:, ["station-header", "station-name_1"]]
+    .rename({"station-header": "sensor-name", "station-name_1": "shape-data"}, axis=1)
+    .reset_index(drop=True)
+)
+# split out the 'shape-data' column to two temp columns
+dataset["shape-data"] = dataset["shape-data"].str.split(",")
+
+for i, col_label in enumerate(["TEMP_x", "TEMP_y"]):
+    dataset[col_label] = dataset["shape-data"].apply(lambda x: x[i]).str.strip()
+
+# turn degrees-minutes-seconds notation of 'shape-data' to degrees notation
+for col_label in ["TEMP_x", "TEMP_y"]:
+    dataset[col_label] = dataset[col_label].apply(
+        lambda x: convert_coord(x, "degrees_minutes_seconds", "degrees")
+    )
+
+# recreate the 'shape-data' column using WKT notation
+points = []
+for x, y in zip(dataset["TEMP_x"].values, dataset["TEMP_y"].values):
+    point = geometry.Point((x, y)).wkt
+    points.append(point)
+dataset["shape-data"] = points
+
+
+# sort by 'sensor-name' and give all sensors a unique id
+dataset = dataset.sort_values(by="sensor-name")
+dataset["id"] = [i for i in range(1, len(dataset) + 1)]
+
+#  reorder columns
+dataset = dataset.reindex(columns=["id", "sensor-name", "shape-data"])
+
+# rewrite the dataset back into the dict
+datasets["icing-sensors"] = dataset
+
+
+# --- merge 'automated-weather-stations' and 'icing-sensors' ---
+dataset = pd.concat(
+    objs=[datasets["automated-weather-stations"], datasets["icing-sensors"]],
+    ignore_index=True,
+)
+
+# Fix 'sensor-name' string formatting issues
+dataset["sensor-name"] = dataset["sensor-name"].str.lstrip()
+
+# sort by 'sensor-name' and give all sensors a unique id
+dataset = dataset.sort_values(by="sensor-name", ascending=True).reset_index(drop=True)
+dataset["id"] = [i for i in range(1, len(dataset) + 1)]
+
+# write the dataset into the dict
+datasets["weather-sensors"] = dataset
+
+# --- clean 'observations-load_2020xx.csv's ---
+dataset = datasets["weather-observations"]
+
+# drop unnecessary columns
+dataset = dataset.loc[
+    :,
+    [
+        "DATE_TIME",
+        "AVERAGE_TEMPERATURE",
+        "AVERAGE_HUMIDITY",
+        "AVERAGE_WIND",
+        "AVERAGE_DIRECTIONOFWIND",
+        "AVERAGE_PRECIPITATION",
+    ],
+]
+
+# fix 'DATE_TIME' column value format discrepancies
+# can be done by converting to DT object
+dataset["DATE_TIME"] = pd.to_datetime(dataset["DATE_TIME"])
+
+# expand 'DATE_TIME' column to diff. columns
+
+dataset["day"] = dataset["DATE_TIME"].dt.day
+dataset["month"] = dataset["DATE_TIME"].dt.month
+dataset["year"] = dataset["DATE_TIME"].dt.year
+dataset["hour"] = dataset["DATE_TIME"].dt.hour
+
+# replace illogical values in numerical columns with NaN
+for col in [
+    "AVERAGE_HUMIDITY",
+    "AVERAGE_WIND",
+    "AVERAGE_PRECIPITATION",
+    "AVERAGE_DIRECTIONOFWIND",
+]:
+    illogical_mask = dataset[col] < 0
+    dataset.loc[illogical_mask, col] = np.nan
+
+
+# group by 'DATE_TIME' to get an avg of different stations
+subset = (
+    dataset.groupby("DATE_TIME")
+    .agg(
+        {
+            "AVERAGE_TEMPERATURE": "mean",
+            "AVERAGE_HUMIDITY": "mean",
+            "AVERAGE_WIND": "mean",
+            "AVERAGE_DIRECTIONOFWIND": "mean",
+            "AVERAGE_PRECIPITATION": "mean",
+        }
+    )
+    .reset_index(drop=True)
+)
+# GOTTA FIX THIS
+
+# dataset = dataset.drop("DATE_TIME", axis=1)  # We can now drop this
+
+# # sort by day, month year, rename and and reorder columns
+# dataset = (
+#     dataset.sort_values(by=["day", "month", "year", "hour"], ascending=True)
+#     .rename(
+#         {
+#             "AVERAGE_TEMPERATURE": "avg-temp",
+#             "AVERAGE_HUMIDITY": "avg-humidity",
+#             "AVERAGE_WIND": "avg-wind",
+#             "AVERAGE_DIRECTIONOFWIND": "avg-windir",
+#             "AVERAGE_PRECIPITATION": "avg-precip",
+#         },
+#         axis=1,
+#     )
+#     .reindex(
+#         columns=[
+#             "day",
+#             "month",
+#             "year",
+#             "hour",
+#             "avg-temp",
+#             "avg-humidity",
+#             "avg-precip",
+#             "avg-wind",
+#             "avg-windir",
+#         ]
+#     )
+# )
+
+# # rewrite to datasets dictionary
+
+# print(dataset.loc[dataset["avg-temp"].isna(), "avg-temp"])
+
+# ##FIX DAY YEAR FORMAT OF PREV. DATASET
