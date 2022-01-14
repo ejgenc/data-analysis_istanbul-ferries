@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 import pandas as pd
 from shapely import geometry, ops
@@ -37,17 +38,48 @@ import_dicts = [
         ],
         "skiprows": 1,
     },
+    {
+        "tag": "trips-per-ferry-line",
+        "path": Path("data/raw/summary-stats/trips-per-ferry-line_2020.csv"),
+        "encoding": "utf-8",
+        "sep": ";",
+        "headers": ["year", "line-name", "n_trips"],
+        "skiprows": 1,
+    },
+    {
+        "tag": "transportation-load",
+        "path": Path("data/raw/historic-transportation-load/"),
+        "encoding": "utf-8",
+        "sep": ",",
+    },
 ]
 datasets = {}
 for import_dict in import_dicts:
-    datasets[import_dict["tag"]] = pd.read_csv(
-        import_dict["path"],
-        encoding=import_dict["encoding"],
-        sep=import_dict["sep"],
-        names=import_dict["headers"],
-        skiprows=import_dict["skiprows"],
-    )
-
+    if import_dict["tag"] != "transportation-load":
+        datasets[import_dict["tag"]] = pd.read_csv(
+            import_dict["path"],
+            encoding=import_dict["encoding"],
+            sep=import_dict["sep"],
+            names=import_dict["headers"],
+            skiprows=import_dict["skiprows"],
+        )
+    else:
+        # get all subfiles
+        dir_list = os.listdir(import_dict["path"])
+        # get first element as big dict
+        big_df = pd.read_csv(
+            os.path.join(import_dict["path"], dir_list[0]),
+            encoding=import_dict["encoding"],
+            sep=import_dict["sep"],
+        )
+        for dir in dir_list[1:]:
+            temp_df = pd.read_csv(
+                os.path.join(import_dict["path"], dir),
+                encoding=import_dict["encoding"],
+                sep=import_dict["sep"],
+            )
+            big_df = big_df.append(temp_df, ignore_index=True)
+        datasets[import_dict["tag"]] = big_df
 
 # --- clean 'ferry-terminals-geoloc.csv' ---
 dataset = datasets["ferry-terminals"]
@@ -122,6 +154,8 @@ repl_dict = {
     "Kabataþ": "Kabataş",
     "Kadýköy": "Kadıköy",
     "Beþiktaþ": "Beşiktaş",
+    "BEÞÝKTAÞ": "Beşiktaş",
+    "MUHTELÝF": "Muhtelif",
     "Sarýyer": "Sarıyer",
     "Kavaðý": "Kavağı",
     "Ýstinye": "İstinye",
@@ -130,6 +164,14 @@ repl_dict = {
     "Adasý": "Adası",
     "Haydarpaþa": "Haydarpaşa",
     "Bostancý": "Bostancı",
+    "EMÝNÖNÜ": "Eminönü",
+    "ÝSTÝNYE": "İstinye",
+    "EMÝRGAN": "Emirgan",
+    "BEYLERBEYÝ": "Beylerbeyi",
+    "MUHTELÝF ÝSK.": "Üsküdar",
+    "A.KAVAÐI": "Anadolu Kavağı",
+    "R.KAVAÐI - SARIYER": "Rumeli Kavağı",
+    "KÜÇÜK SU": "Küçüksu",
 }
 for pat, repl in repl_dict.items():
     dataset.loc[:, "has-line"] = dataset.loc[:, "has-line"].str.replace(
@@ -255,3 +297,79 @@ dataset["line-id"] = dataset["line-id"].astype(int)
 
 # re-write the dataset into the dict
 datasets["terminals-lines"] = dataset
+
+# --- clean 'passengers-per-ferry-line_2020.csv' ---
+dataset = datasets["trips-per-ferry-line"]
+
+# fix 'line-name' values
+repl_dict["MUHTELÝF"] = "Muhtelif"
+repl_dict["RÝNG"] = "Ring"
+repl_dict["PAÞABAHÇE"] = "Paşabahçe"
+repl_dict["ÝSTANBUL"] = "İstanbul"
+repl_dict["GÝDÝÞ GELÝÞ"] = "Gidiş Geliş"
+repl_dict["KASIMPAÞA"] = "Kasımpaşa"
+repl_dict["SEFERLERÝ"] = "Seferleri"
+repl_dict["EMÝRGAN"] = "Emirgan"
+repl_dict["HEYBELÝADA"] = "Heybeliada"
+repl_dict["ÝSK"] = "Üsküdar"
+
+for pat, repl in repl_dict.items():
+    dataset.loc[:, "line-name"] = dataset.loc[:, "line-name"].str.replace(
+        pat.upper(),
+        repl,
+        regex=True,
+    )
+
+# fix data type of "n_trips"
+dataset["n_trips"] = (
+    dataset["n_trips"]
+    .astype(str)
+    .str.rstrip("0")
+    .str.replace(".", "", regex=True)
+    .astype(int)
+)
+
+# fix some 'n_trips' values manually
+dataset.loc[dataset["n_trips"] == 449, "n_trips"] = 4490
+dataset.loc[dataset["n_trips"] == 197, "n_trips"] = 1970
+
+# re-write the dataset into the dict
+datasets["trips-per-ferry-line"] = dataset
+
+# --- clean 'transportation-load_2020xx.csv's ---
+dataset = datasets["transportation-load"]
+
+# filter rows
+dataset = dataset.loc[dataset["TRANSPORT_TYPE_ID"] == 3, :]
+
+# calculate true sum of 'NUMBER_OF_PASSENGER' & drop unnecessary columns
+dataset = dataset.groupby("DATE_TIME").agg({"NUMBER_OF_PASSENGER": sum}).reset_index()
+
+# reformat 'date_time' column
+dataset["DATE_TIME"] = dataset["DATE_TIME"].str.split(" ")
+
+dataset["hour"] = (
+    dataset["DATE_TIME"].apply(lambda x: x[1]).str.split(":").apply(lambda x: x[0])
+)
+
+dataset["TEMP_date"] = dataset["DATE_TIME"].apply(lambda x: x[0]).str.split("-")
+
+for header, index in {"day": 2, "month": 1, "year": 0}.items():
+    dataset[header] = dataset["TEMP_date"].apply(lambda x: x[index])
+
+# drop columns, change column order and rename columns
+dataset = (
+    dataset.drop(["DATE_TIME", "TEMP_date"], axis=1)
+    .reindex(columns=["day", "month", "year", "hour", "NUMBER_OF_PASSENGER"])
+    .rename({"NUMBER_OF_PASSENGER": "n_passengers"}, axis=1)
+)
+
+# sort dataset by 'day', 'month' and 'hour columns, ascending & reset index
+dataset = dataset.sort_values(
+    by=["day", "month", "hour"], axis=0, ascending=True, ignore_index=True
+)
+
+# rewrite the dataset back into the dict
+datasets["transportation-load"] = dataset
+
+# --- clean 'automated-weather-stations-geoloc.csv' and 'icing-sensors.geoloc.csv'
