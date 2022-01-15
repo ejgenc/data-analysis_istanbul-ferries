@@ -8,7 +8,7 @@ from shapely.wkt import loads
 
 from src.helper_functions import try_wkt_conversion, convert_coord
 
-# Import data
+# --- import data ---
 import_dicts = [
     {
         "tag": "ferry-terminals",
@@ -369,27 +369,32 @@ dataset = dataset.loc[dataset["TRANSPORT_TYPE_ID"] == 3, :]
 dataset = dataset.groupby("DATE_TIME").agg({"NUMBER_OF_PASSENGER": sum}).reset_index()
 
 # reformat 'date_time' column
-dataset["DATE_TIME"] = dataset["DATE_TIME"].str.split(" ")
+# can be done by converting to DT object
+dataset["DATE_TIME"] = pd.to_datetime(dataset["DATE_TIME"])
 
-dataset["hour"] = (
-    dataset["DATE_TIME"].apply(lambda x: x[1]).str.split(":").apply(lambda x: x[0])
+# fill non-existent days with NaN
+whole_year = pd.date_range(
+    start="1/1/2020 00:00:00", end="31/12/2020 23:00:00", freq="1H"
 )
+missing_dates = whole_year[~(whole_year.isin(dataset["DATE_TIME"]))]
 
-dataset["TEMP_date"] = dataset["DATE_TIME"].apply(lambda x: x[0]).str.split("-")
+missing_dates = pd.DataFrame(data=missing_dates, columns=["DATE_TIME"])
+missing_dates["NUMBER_OF_PASSENGER"] = [np.nan for i in range(0, len(missing_dates))]
 
-for header, index in {"day": 2, "month": 1, "year": 0}.items():
-    dataset[header] = dataset["TEMP_date"].apply(lambda x: x[index])
+dataset = pd.concat([dataset, missing_dates], ignore_index=True)
+
+# expand 'DATE_TIME' column to diff. columns
+dataset["day"] = dataset["DATE_TIME"].dt.day.astype(int)
+dataset["month"] = dataset["DATE_TIME"].dt.month.astype(int)
+dataset["year"] = dataset["DATE_TIME"].dt.year.astype(int)
+dataset["hour"] = dataset["DATE_TIME"].dt.hour.astype(int)
 
 # drop columns, change column order and rename columns
 dataset = (
-    dataset.drop(["DATE_TIME", "TEMP_date"], axis=1)
+    dataset.sort_values(by="DATE_TIME", axis=0, ascending=True, ignore_index=True)
+    .drop(["DATE_TIME"], axis=1)
     .reindex(columns=["day", "month", "year", "hour", "NUMBER_OF_PASSENGER"])
     .rename({"NUMBER_OF_PASSENGER": "n_passengers"}, axis=1)
-)
-
-# sort dataset by 'day', 'month' and 'hour columns, ascending & reset index
-dataset = dataset.sort_values(
-    by=["day", "month", "hour"], axis=0, ascending=True, ignore_index=True
 )
 
 # rewrite the dataset back into the dict
@@ -506,13 +511,6 @@ dataset = dataset.loc[
 # can be done by converting to DT object
 dataset["DATE_TIME"] = pd.to_datetime(dataset["DATE_TIME"])
 
-# expand 'DATE_TIME' column to diff. columns
-
-dataset["day"] = dataset["DATE_TIME"].dt.day
-dataset["month"] = dataset["DATE_TIME"].dt.month
-dataset["year"] = dataset["DATE_TIME"].dt.year
-dataset["hour"] = dataset["DATE_TIME"].dt.hour
-
 # replace illogical values in numerical columns with NaN
 for col in [
     "AVERAGE_HUMIDITY",
@@ -523,9 +521,8 @@ for col in [
     illogical_mask = dataset[col] < 0
     dataset.loc[illogical_mask, col] = np.nan
 
-
 # group by 'DATE_TIME' to get an avg of different stations
-subset = (
+dataset = (
     dataset.groupby("DATE_TIME")
     .agg(
         {
@@ -536,42 +533,76 @@ subset = (
             "AVERAGE_PRECIPITATION": "mean",
         }
     )
-    .reset_index(drop=True)
+    .reset_index()
 )
-# GOTTA FIX THIS
 
-# dataset = dataset.drop("DATE_TIME", axis=1)  # We can now drop this
+# fill non-existent days with NaN
+whole_year = pd.date_range(
+    start="1/1/2020 00:00:00", end="31/12/2020 23:00:00", freq="1H"
+)
+missing_dates = whole_year[~(whole_year.isin(dataset["DATE_TIME"]))]
 
-# # sort by day, month year, rename and and reorder columns
-# dataset = (
-#     dataset.sort_values(by=["day", "month", "year", "hour"], ascending=True)
-#     .rename(
-#         {
-#             "AVERAGE_TEMPERATURE": "avg-temp",
-#             "AVERAGE_HUMIDITY": "avg-humidity",
-#             "AVERAGE_WIND": "avg-wind",
-#             "AVERAGE_DIRECTIONOFWIND": "avg-windir",
-#             "AVERAGE_PRECIPITATION": "avg-precip",
-#         },
-#         axis=1,
-#     )
-#     .reindex(
-#         columns=[
-#             "day",
-#             "month",
-#             "year",
-#             "hour",
-#             "avg-temp",
-#             "avg-humidity",
-#             "avg-precip",
-#             "avg-wind",
-#             "avg-windir",
-#         ]
-#     )
-# )
+missing_dates = pd.DataFrame(data=missing_dates, columns=["DATE_TIME"])
+for col_header in [
+    "AVERAGE_TEMPERATURE",
+    "AVERAGE_HUMIDITY",
+    "AVERAGE_WIND",
+    "AVERAGE_DIRECTIONOFWIND",
+    "AVERAGE_PRECIPITATION",
+]:
+    missing_dates[col_header] = [np.nan for i in range(0, len(missing_dates))]
 
-# # rewrite to datasets dictionary
+dataset = pd.concat([dataset, missing_dates], ignore_index=True)
 
-# print(dataset.loc[dataset["avg-temp"].isna(), "avg-temp"])
+# expand 'DATE_TIME' column to diff. columns
+dataset["day"] = dataset["DATE_TIME"].dt.day.astype(int)
+dataset["month"] = dataset["DATE_TIME"].dt.month.astype(int)
+dataset["year"] = dataset["DATE_TIME"].dt.year.astype(int)
+dataset["hour"] = dataset["DATE_TIME"].dt.hour.astype(int)
 
-# ##FIX DAY YEAR FORMAT OF PREV. DATASET
+# sort date_time and then clean up columns
+dataset = (
+    dataset.sort_values(by="DATE_TIME", ascending=True)
+    .drop("DATE_TIME", axis=1)
+    .rename(
+        {
+            "AVERAGE_TEMPERATURE": "avg-temp",
+            "AVERAGE_HUMIDITY": "avg-humidity",
+            "AVERAGE_WIND": "avg-wind",
+            "AVERAGE_DIRECTIONOFWIND": "avg-windir",
+            "AVERAGE_PRECIPITATION": "avg-precip",
+        },
+        axis=1,
+    )
+    .reindex(
+        columns=[
+            "day",
+            "month",
+            "year",
+            "hour",
+            "avg-temp",
+            "avg-humidity",
+            "avg-precip",
+            "avg-wind",
+            "avg-windir",
+        ]
+    )
+)
+
+# rewrite to datasets dictionary
+datasets["weather-observations"] = dataset
+
+# --- export data ---
+for dataset_name in [
+    "ferry-terminals",
+    "ferry-lines",
+    "terminals-lines",
+    "trips-per-ferry-line",
+    "transportation-load",
+    "weather-sensors",
+    "weather-observations",
+]:
+    path = Path("data/cleaned/{}.csv".format(dataset_name))
+    datasets[dataset_name].to_csv(
+        path_or_buf=path, sep=",", index=False, encoding="utf-8-sig"
+    )

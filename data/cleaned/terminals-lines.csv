@@ -1,0 +1,45 @@
+﻿terminal-id,terminal-name,has-line,line-id
+1,Anadolu Hisarı,Bosphorus Line,5
+2,Anadolu Kavağı,Sarıyer - Rumeli Kavağı - Anadolu Kavağı,33
+3,Arnavutköy,Bosphorus Line,5
+6,Bebek,Bosphorus Line,5
+7,Beykoz,Bosphorus Line,5
+8,Beylerbeyi,Bosphorus Line,5
+9,Beşiktaş - Kadıköy,Kadıköy - Beşiktaş,21
+10,Beşiktaş - Üsküdar,Üsküdar - Beşiktaş,37
+11,Bostancı,Bostancı - Adalar,6
+12,Burgazada,Kabataş - Kadıköy - Adalar,20
+13,Büyükada,Kabataş - Kadıköy - Adalar,20
+14,Büyükdere,Bosphorus Line,5
+15,Eminönü - Bosphorus,Bosphorus Line,5
+16,Eminönü - Kadıköy,Kadıköy - Eminönü,22
+17,Eminönü - Üsküdar,Eminönü - Üsküdar,12
+19,Eminönü Small Terminal,Kadıköy - Eminönü,22
+20,Emirgan,Bosphorus Line,5
+24,Haydarpaşa,Karaköy - Haydarpaşa - Kadıköy,27
+25,Heybeliada,Kabataş - Kadıköy - Adalar,20
+26,Kabataş,Kadıköy - Kabataş,24
+26,Kabataş,Kabataş - Kadıköy - Adalar,20
+27,Kadıköy - Beşiktaş,Kadıköy - Beşiktaş,21
+28,Kadıköy - Beşiktaş - Adalar,Kabataş - Kadıköy - Adalar,20
+29,Kandilli,Bosphorus Line,5
+30,Kanlıca,Bosphorus Line,5
+31,Karaköy,Karaköy - Haydarpaşa - Kadıköy,27
+33,Kuzguncuk,Bosphorus Line,5
+34,Küçüksu,Küçüksu - Beşiktaş,29
+35,Kınalıada,Kabataş - Kadıköy - Adalar,20
+35,Kınalıada,Bostancı - Adalar,6
+36,Ortaköy,Bosphorus Line,5
+37,Paşabahçe,Bosphorus Line,5
+38,Rumeli Kavağı,Sarıyer - Rumeli Kavağı - Anadolu Kavağı,33
+39,Sarıyer,Sarıyer - Rumeli Kavağı - Anadolu Kavağı,33
+40,Sedef Adası,Bostancı - Sedef Adası,9
+42,Yeni Kadıköy,Karaköy - Haydarpaşa - Kadıköy,27
+42,Yeni Kadıköy,Kadıköy - Eminönü,22
+42,Yeni Kadıköy,Kadıköy - Kabataş,24
+43,Yeniköy,Bosphorus Line,5
+44,Çengelköy,Bosphorus Line,5
+45,Çubuklu,Bosphorus Line,5
+47,Üsküdar,Eminönü - Üsküdar,12
+47,Üsküdar,Üsküdar - Beşiktaş,37
+48,İstinye,Bosphorus Line,5
