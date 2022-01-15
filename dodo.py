@@ -64,3 +64,12 @@ def task_create_db():
         ],
         "title": show_cmd,
     }
+
+
+def task_teardown():
+    action_path = Path("src/utility-scripts/teardown.py")
+    return {
+        "task_dep": ["create_db"],
+        "actions": ["python {}".format(action_path)],
+        "title": show_cmd,
+    }
