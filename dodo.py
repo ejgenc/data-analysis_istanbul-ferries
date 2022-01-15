@@ -1,8 +1,18 @@
 from pathlib import Path
+from doit.tools import run_once
 
 
 def show_cmd(task):
     return "executing... %s" % task.name
+
+
+def task_prepare():
+    action_path = Path("src/utility-scripts/prepare.py")
+    return {
+        "actions": ["python {}".format(action_path)],
+        "uptodate": [run_once],
+        "title": show_cmd,
+    }
 
 
 def task_clean_raw():
@@ -19,6 +29,7 @@ def task_clean_raw():
             Path("data/raw/historic-weather-observations/observations_202001.csv"),
             Path("data/raw/summary-stats/trips-per-ferry-line_2020.csv"),
         ],
+        "task_dep": ["prepare"],
         "actions": ["python {}".format(action_path)],
         "title": show_cmd,
     }
