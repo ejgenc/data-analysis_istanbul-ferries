@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 # --- delete db files if they already exist ---
-db_files = {"istanbul-ferries-db.sqlite3", "istanbul-ferries-dump.txt"}
+db_files = {"istanbul-ferries-db.sqlite3", "istanbul-ferries-dump.sql"}
 db_path = Path("data/db/")
 
 for filename in os.listdir(db_path):

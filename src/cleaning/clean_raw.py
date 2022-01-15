@@ -44,7 +44,7 @@ import_dicts = [
         "path": Path("data/raw/summary-stats/trips-per-ferry-line_2020.csv"),
         "encoding": "utf-8",
         "sep": ";",
-        "headers": ["year", "line-name", "n_trips"],
+        "headers": ["year", "line-name", "n-trips"],
         "skiprows": 1,
     },
     {
@@ -343,18 +343,18 @@ for pat, repl in repl_dict.items():
         regex=True,
     )
 
-# fix data type of "n_trips"
-dataset["n_trips"] = (
-    dataset["n_trips"]
+# fix data type of "n-trips"
+dataset["n-trips"] = (
+    dataset["n-trips"]
     .astype(str)
     .str.rstrip("0")
     .str.replace(".", "", regex=True)
     .astype(int)
 )
 
-# fix some 'n_trips' values manually
-dataset.loc[dataset["n_trips"] == 449, "n_trips"] = 4490
-dataset.loc[dataset["n_trips"] == 197, "n_trips"] = 1970
+# fix some 'n-trips' values manually
+dataset.loc[dataset["n-trips"] == 449, "n-trips"] = 4490
+dataset.loc[dataset["n-trips"] == 197, "n-trips"] = 1970
 
 # re-write the dataset into the dict
 datasets["trips-per-ferry-line"] = dataset
@@ -394,7 +394,7 @@ dataset = (
     dataset.sort_values(by="DATE_TIME", axis=0, ascending=True, ignore_index=True)
     .drop(["DATE_TIME"], axis=1)
     .reindex(columns=["day", "month", "year", "hour", "NUMBER_OF_PASSENGER"])
-    .rename({"NUMBER_OF_PASSENGER": "n_passengers"}, axis=1)
+    .rename({"NUMBER_OF_PASSENGER": "n-passengers"}, axis=1)
 )
 
 # rewrite the dataset back into the dict
@@ -569,7 +569,7 @@ dataset = (
             "AVERAGE_TEMPERATURE": "avg-temp",
             "AVERAGE_HUMIDITY": "avg-humidity",
             "AVERAGE_WIND": "avg-wind",
-            "AVERAGE_DIRECTIONOFWIND": "avg-windir",
+            "AVERAGE_DIRECTIONOFWIND": "avg-winddir",
             "AVERAGE_PRECIPITATION": "avg-precip",
         },
         axis=1,
@@ -584,7 +584,7 @@ dataset = (
             "avg-humidity",
             "avg-precip",
             "avg-wind",
-            "avg-windir",
+            "avg-winddir",
         ]
     )
 )

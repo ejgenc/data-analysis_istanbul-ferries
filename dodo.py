@@ -31,5 +31,36 @@ def task_clean_raw():
         ],
         "task_dep": ["prepare"],
         "actions": ["python {}".format(action_path)],
+        "targets": [
+            Path("data/cleaned/ferry-lines.csv"),
+            Path("data/cleaned/ferry-terminals.csv"),
+            Path("data/cleaned/terminals-lines.csv"),
+            Path("data/cleaned/transportation-load.csv"),
+            Path("data/cleaned/trips-per-ferry-line.csv"),
+            Path("data/cleaned/weather-observations.csv"),
+            Path("data/cleaned/weather-sensors.csv"),
+        ],
+        "title": show_cmd,
+    }
+
+
+def task_create_db():
+    action_path = Path("src/processing/create_db.py")
+    return {
+        "file_dep": [
+            Path("data/cleaned/ferry-lines.csv"),
+            Path("data/cleaned/ferry-terminals.csv"),
+            Path("data/cleaned/terminals-lines.csv"),
+            Path("data/cleaned/transportation-load.csv"),
+            Path("data/cleaned/trips-per-ferry-line.csv"),
+            Path("data/cleaned/weather-observations.csv"),
+            Path("data/cleaned/weather-sensors.csv"),
+        ],
+        "task_dep": ["clean_raw"],
+        "actions": ["python {}".format(action_path)],
+        "targets": [
+            Path("data/db/istanbul-ferries-db.sqlite3"),
+            Path("data/db/istanbul-ferries-dump.txt"),
+        ],
         "title": show_cmd,
     }
