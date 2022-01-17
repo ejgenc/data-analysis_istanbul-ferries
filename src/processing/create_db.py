@@ -127,6 +127,6 @@ with io.open(dump_path, "w", encoding="utf-8-sig") as f:
     for line in conn.iterdump():
         f.write("%s\n" % line)
 
-# --- Close the cursor and the connection
+# --- Close the cursor and the connection ---
 cursor.close()
 conn.close()
